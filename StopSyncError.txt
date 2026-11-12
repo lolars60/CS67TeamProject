@@ -1,0 +1,2 @@
+.\gradlew.bat --stop
+.\gradlew.bat test --no-daemon
