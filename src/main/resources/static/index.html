@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!--
+  CS67 Team Project - Team Logbook (Carter Beasley & Lanse Larsen)
+  File: src/main/resources/static/index.html
+
+  Why this file is here:
+  Spring Boot's "spring-boot-starter-webmvc" automatically serves any file named
+  "index.html" inside "src/main/resources/static/" when you open:
+  http://localhost:8080/
+
+  How it works:
+  This page provides a minimal 3-input form (Mileage, Pace, Total Time).
+  All validation and math are handled in Java by PaceCalculatorController.java
+  at the Spring Boot endpoint: GET /api/calculate
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Logbook — Pace Calculator</title>
+  <style>
+    /* Minimal styling to keep the form clean and readable */
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 380px;
+      margin: 48px auto;
+      padding: 0 16px;
+      color: #1e293b;
+    }
+    h2 { margin-bottom: 4px; }
+    p.hint { margin-top: 0; font-size: 0.9rem; color: #64748b; }
+    label { display: block; margin-top: 12px; font-weight: 600; font-size: 0.9rem; }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+    .buttons { margin-top: 16px; display: flex; gap: 8px; }
+    button { padding: 8px 14px; font-size: 0.95rem; cursor: pointer; }
+    #status { margin-top: 12px; font-size: 0.9rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <h2>Team Logbook Calculator</h2>
+  <p class="hint">Enter any 2 values and leave the 3rd blank.</p>
+
+  <!-- 3 Input Fields: Mileage, Pace, and Total Time -->
+  <form id="calcForm" onsubmit="runCalculation(event)">
+    <label for="miles">Mileage (miles)</label>
+    <input id="miles" type="number" step="0.01" min="0" placeholder="e.g. 8.0">
+
+    <label for="pace">Pace (mm:ss per mile)</label>
+    <input id="pace" type="text" placeholder="e.g. 6:30">
+
+    <label for="time">Total Time (mm:ss or hh:mm:ss)</label>
+    <input id="time" type="text" placeholder="e.g. 52:00">
+
+    <div class="buttons">
+      <button type="submit">Calculate</button>
+      <button type="button" onclick="clearForm()">Clear</button>
+    </div>
+  </form>
+
+  <!-- Displays either the calculation confirmation or a validation error from Java -->
+  <p id="status"></p>
+
+  <script>
+    /**
+     * Sends the two entered fields to the Spring Boot backend:
+     * GET /api/calculate?miles=...&pace=...&time=...
+     * and fills the calculated value returned by Java into the 3rd input box.
+     */
+    async function runCalculation(event) {
+      event.preventDefault(); // Prevents the browser from reloading the page
+
+      const milesEl = document.getElementById('miles');
+      const paceEl = document.getElementById('pace');
+      const timeEl = document.getElementById('time');
+      const statusEl = document.getElementById('status');
+
+      // Build the query string with whichever fields the user filled in
+      const params = new URLSearchParams();
+      if (milesEl.value.trim()) params.append('miles', milesEl.value.trim());
+      if (paceEl.value.trim()) params.append('pace', paceEl.value.trim());
+      if (timeEl.value.trim()) params.append('time', timeEl.value.trim());
+
+      try {
+        // Call PaceCalculatorController.java in Spring Boot
+        const response = await fetch('/api/calculate?' + params.toString());
+        const data = await response.json();
+
+        // If Spring Boot returned HTTP 400 Bad Request, show the Java error message
+        if (!response.ok) {
+          statusEl.style.color = '#dc2626';
+          statusEl.textContent = data.error || 'Invalid input.';
+          return;
+        }
+
+        // Fill all 3 boxes with the formatted values returned from Java
+        milesEl.value = data.miles;
+        paceEl.value = data.pace;
+        timeEl.value = data.time;
+
+        statusEl.style.color = '#16a34a';
+        statusEl.textContent = 'Calculated ' + data.calculatedField + ' successfully!';
+      } catch (err) {
+        statusEl.style.color = '#dc2626';
+        statusEl.textContent = 'Error connecting to server.';
+      }
+    }
+
+    /** Clears all three input boxes and the status message. */
+    function clearForm() {
+      document.getElementById('miles').value = '';
+      document.getElementById('pace').value = '';
+      document.getElementById('time').value = '';
+      document.getElementById('status').textContent = '';
+    }
+  </script>
+</body>
+</html>
