@@ -1,124 +1,471 @@
-<!DOCTYPE html>
-<!--
-  CS67 Team Project - Team Logbook (Carter Beasley & Lanse Larsen)
-  File: src/main/resources/static/index.html
-
-  Why this file is here:
-  Spring Boot's "spring-boot-starter-webmvc" automatically serves any file named
-  "index.html" inside "src/main/resources/static/" when you open:
-  http://localhost:8080/
-
-  How it works:
-  This page provides a minimal 3-input form (Mileage, Pace, Total Time).
-  All validation and math are handled in Java by PaceCalculatorController.java
-  at the Spring Boot endpoint: GET /api/calculate
--->
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Team Logbook — Pace Calculator</title>
-  <style>
-    /* Minimal styling to keep the form clean and readable */
-    body {
-      font-family: system-ui, sans-serif;
-      max-width: 380px;
-      margin: 48px auto;
-      padding: 0 16px;
-      color: #1e293b;
-    }
-    h2 { margin-bottom: 4px; }
-    p.hint { margin-top: 0; font-size: 0.9rem; color: #64748b; }
-    label { display: block; margin-top: 12px; font-weight: 600; font-size: 0.9rem; }
-    input {
-      width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      box-sizing: border-box;
-      font-size: 1rem;
-    }
-    .buttons { margin-top: 16px; display: flex; gap: 8px; }
-    button { padding: 8px 14px; font-size: 0.95rem; cursor: pointer; }
-    #status { margin-top: 12px; font-size: 0.9rem; font-weight: 600; }
-  </style>
-</head>
-<body>
-
-  <h2>Team Logbook Calculator</h2>
-  <p class="hint">Enter any 2 values and leave the 3rd blank.</p>
-
-  <!-- 3 Input Fields: Mileage, Pace, and Total Time -->
-  <form id="calcForm" onsubmit="runCalculation(event)">
-    <label for="miles">Mileage (miles)</label>
-    <input id="miles" type="number" step="0.01" min="0" placeholder="e.g. 8.0">
-
-    <label for="pace">Pace (mm:ss per mile)</label>
-    <input id="pace" type="text" placeholder="e.g. 6:30">
-
-    <label for="time">Total Time (mm:ss or hh:mm:ss)</label>
-    <input id="time" type="text" placeholder="e.g. 52:00">
-
-    <div class="buttons">
-      <button type="submit">Calculate</button>
-      <button type="button" onclick="clearForm()">Clear</button>
-    </div>
-  </form>
-
-  <!-- Displays either the calculation confirmation or a validation error from Java -->
-  <p id="status"></p>
-
-  <script>
-    /**
-     * Sends the two entered fields to the Spring Boot backend:
-     * GET /api/calculate?miles=...&pace=...&time=...
-     * and fills the calculated value returned by Java into the 3rd input box.
-     */
-    async function runCalculation(event) {
-      event.preventDefault(); // Prevents the browser from reloading the page
-
-      const milesEl = document.getElementById('miles');
-      const paceEl = document.getElementById('pace');
-      const timeEl = document.getElementById('time');
-      const statusEl = document.getElementById('status');
-
-      // Build the query string with whichever fields the user filled in
-      const params = new URLSearchParams();
-      if (milesEl.value.trim()) params.append('miles', milesEl.value.trim());
-      if (paceEl.value.trim()) params.append('pace', paceEl.value.trim());
-      if (timeEl.value.trim()) params.append('time', timeEl.value.trim());
-
-      try {
-        // Call PaceCalculatorController.java in Spring Boot
-        const response = await fetch('/api/calculate?' + params.toString());
-        const data = await response.json();
-
-        // If Spring Boot returned HTTP 400 Bad Request, show the Java error message
-        if (!response.ok) {
-          statusEl.style.color = '#dc2626';
-          statusEl.textContent = data.error || 'Invalid input.';
-          return;
-        }
-
-        // Fill all 3 boxes with the formatted values returned from Java
-        milesEl.value = data.miles;
-        paceEl.value = data.pace;
-        timeEl.value = data.time;
-
-        statusEl.style.color = '#16a34a';
-        statusEl.textContent = 'Calculated ' + data.calculatedField + ' successfully!';
-      } catch (err) {
-        statusEl.style.color = '#dc2626';
-        statusEl.textContent = 'Error connecting to server.';
-      }
-    }
-
-    /** Clears all three input boxes and the status message. */
-    function clearForm() {
-      document.getElementById('miles').value = '';
-      document.getElementById('pace').value = '';
-      document.getElementById('time').value = '';
-      document.getElementById('status').textContent = '';
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>STRIDE//OPS — Track &amp; Cross Country Performance Telemetry</title>
+<!-- Google Fonts: Hanken Grotesk, Geist, JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Hanken+Grotesk:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS with Forms & Container Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "background": "#FEFEFD",
+            "surface": "#FEFEFD",
+            "surface-dim": "#F4F4F2",
+            "surface-container-lowest": "#FFFFFF",
+            "surface-container-low": "#FAFAF8",
+            "surface-container": "#F5F5F3",
+            "surface-container-high": "#ECECE8",
+            "surface-container-highest": "#E4E3DF",
+            "on-surface": "#080808",
+            "on-surface-variant": "#575757",
+            "outline": "#D1D1CB",
+            "outline-variant": "#EAEAE6",
+            "primary": "#154ECD",
+            "primary-hover": "#0F3EA8",
+            "primary-container": "#EEF3FD",
+            "on-primary": "#FFFFFF",
+            "secondary": "#575757",
+            "secondary-container": "#F2F3F6",
+            "accent-blue": "#154ECD",
+            "accent-sky": "#3B82F6",
+            "accent-light": "#E9F0FD",
+            "error": "#BA1A1A",
+            "error-container": "#FFDAD6"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "sm": "0.25rem",
+            "md": "0.375rem",
+            "lg": "0.5rem",
+            "full": "9999px"
+          },
+          "fontFamily": {
+            "sans": ["Hanken Grotesk", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"],
+            "geist": ["Geist", "sans-serif"]
+          }
+        },
+      },
     }
   </script>
-</body>
-</html>
+<style>
+    .hairline-border {
+      border: 1px solid #EBEBEA;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #FAFAF8;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #E2E2DC;
+      border-radius: 2px;
+    }
+    .tabular-numbers {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+<style></style></head>
+<body class="bg-[#FEFEFD] text-on-surface font-sans antialiased min-h-screen flex flex-col selection:bg-primary-container selection:text-primary" data-new-gr-c-s-check-loaded="14.1347.0" data-gr-ext-installed="" data-new-gr-c-s-loaded="14.1347.0">
+<!-- ================= TOP NAVIGATION BAR (Slim Guardbase Light Aesthetic) ================= -->
+<header class="w-full h-20 px-5 sm:px-7 py-4 flex items-center justify-between border-b border-[#ECECE9] bg-[#FEFEFD] sticky top-0 z-40">
+<!-- Brand / Identity -->
+<div class="flex items-center gap-3"><div class="w-7 h-7 rounded bg-[#154ECD] text-white flex items-center justify-center font-bold text-sm shadow-sm"><span class="material-symbols-outlined text-base leading-none" style="font-variation-settings: &quot;FILL&quot; 1;">sprint</span></div><div class="flex items-center gap-2.5"><span class="font-bold text-base tracking-tight text-[#080808]">9STRIDE<span class="text-[#154ECD]">//</span>OPS</span><span class="hidden xl:inline-block px-2 py-0.5 rounded text-[11px] tracking-wider uppercase font-geist font-medium text-[#575757] bg-[#F4F4F2] border border-[#E7E7E3]">Varsity XC &amp; Track</span></div></div>
+<nav class="hidden lg:flex items-center justify-center space-x-6 text-sm font-medium tracking-tight text-[#575757] mx-auto"><a class="text-[#154ECD] font-semibold flex items-center gap-1.5 px-3 py-2 border-b-2 border-[#154ECD]" href="#logbook"><span>Your Logbook</span><span class="w-1.5 h-1.5 rounded-full bg-[#154ECD]"></span></a><a class="hover:text-[#080808] px-3 py-2 transition-colors" href="#team-logbook">Team Logbook</a><a class="hover:text-[#080808] px-3 py-2 transition-colors" href="#feed">Feed</a><a class="hover:text-[#080808] px-3 py-2 transition-colors" href="#stats">Stats</a></nav>
+<div class="w-56 hidden lg:flex items-center justify-end gap-2"><button type="button" class="px-2.5 py-1.5 rounded hairline-border text-[12px] font-geist font-medium text-[#575757] hover:text-[#080808] hover:bg-[#F4F4F2] transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-[#70706B]">help</span><span>Help</span></button><button type="button" class="px-2.5 py-1.5 rounded hairline-border text-[12px] font-geist font-medium text-[#575757] hover:text-[#080808] hover:bg-[#F4F4F2] transition-colors flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-[#70706B]">settings</span><span>Settings</span></button></div>
+</header>
+<!-- ================= MAIN VIEWPORT WRAPPER ================= -->
+<div class="flex-1 flex overflow-hidden">
+<!-- ================= SLEEK SLIM SIDEBAR (w-56) ================= -->
+
+<!-- ================= MAIN EDITORIAL CONTENT CANVAS ================= -->
+<main class="flex-1 overflow-y-auto custom-scroll bg-[#FEFEFD] p-5 lg:p-7 space-y-5 w-full">
+<!-- 1. HEADER / MICROCYCLE BANNER (Editorial Tech Style) -->
+<section class="rounded-lg bg-[#FFFFFF] hairline-border p-5 relative overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.03)]"><div class="flex flex-col lg:flex-row items-stretch justify-between gap-5"><div class="flex items-start sm:items-center gap-4 flex-1"><div class="relative w-20 h-20 rounded-md overflow-hidden border border-[#D7E3FC] shrink-0 bg-[#EEF3FD] flex items-center justify-center"><div class="w-full h-full bg-cover bg-center flex flex-col justify-end p-1.5 text-white" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuD49x0XUYtSe8d4URtN-24n1PMOOBfx9GaI_KGdCPMWD0nY5Tk3M24j99YDUvY0GcRulbPtUAkWj6YThWaAfzi348mgBUETdrm4UzUR3FZGuvaINtm3GpGk9eDRhcTDRTqL8fQO7koPGYZBG8l5RCUT5mnPDdUG7I7Zy6H-pjCf0cxS1BMlOD4Ia0OIHVeucXBUKUYNB07ElwP13Gc9OuX3i1ku8o5OHe14GCB0JvJ4uQJvUu4mSmUq0w&quot;);"></div></div><div class="space-y-1 flex-1"><div class="flex flex-wrap items-center gap-2"><span class="px-2 py-0.5 rounded text-[10px] font-geist font-semibold uppercase tracking-wider bg-[#EEF3FD] text-[#154ECD] border border-[#D7E3FC]">Logbook</span><span class="text-[#70706B] text-[11px] font-geist">Fall Season 2026</span><span class="text-[#D1D1CB]">•</span><span class="text-[11px] font-mono text-[#080808] font-semibold">Carter's Logbook</span></div><h1 class="font-bold text-2xl tracking-tight text-[#080808]">Carter's Training &amp; Mileage Log</h1><div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2"><div class="bg-[#FAFAF8] p-2 rounded hairline-border"><span class="text-[9px] font-geist font-semibold uppercase text-[#70706B] tracking-wide block">Personal Goal</span><p class="text-[11px] text-[#080808] font-medium leading-snug mt-0.5">Contribute to the team and work on keeping mileage high and consistent</p></div><div class="bg-[#FAFAF8] p-2 rounded hairline-border"><div class="flex items-center justify-between"><span class="text-[9px] font-geist font-semibold uppercase text-[#70706B] tracking-wide block">Team Goal</span></div><p class="text-[11px] text-[#154ECD] font-semibold leading-snug mt-0.5">Win Conference Championship</p></div></div></div></div><div class="flex flex-wrap lg:flex-nowrap items-stretch gap-2.5 shrink-0"><div class="bg-[#FAFAF8] p-3 rounded hairline-border flex flex-col justify-between min-w-[125px]"><span class="text-[9px] font-geist uppercase font-semibold text-[#70706B] tracking-wide">Cumulative Miles</span><div class="font-mono text-xl font-bold text-[#154ECD] tabular-numbers my-1">572.85 <span class="text-[11px] font-normal text-[#70706B]">mi</span></div><span class="text-[9px] font-geist text-[#575757]">Season-to-date total</span></div><div class="bg-[#FAFAF8] p-3 rounded hairline-border flex flex-col justify-between min-w-[125px]"><span class="text-[9px] font-geist uppercase font-semibold text-[#70706B] tracking-wide">Cumulative XT</span><div class="font-mono text-xl font-bold text-[#080808] tabular-numbers my-1">0.0 <span class="text-[11px] font-normal text-[#70706B]">min</span></div><span class="text-[9px] font-geist text-[#70706B]">Zero injury cross-train</span></div></div></div><div class="mt-4 pt-3 border-t border-[#ECECE9] space-y-2.5"><div class="flex items-center justify-between gap-2 overflow-x-auto custom-scroll pb-1"><div class="flex items-center gap-1.5 shrink-0"><button class="px-3 py-1 rounded text-[11px] font-mono font-bold bg-[#154ECD] text-white shadow-sm">Week 1</button><button class="px-3 py-1 rounded text-[11px] font-mono font-medium bg-[#FAFAF8] text-[#575757] hover:text-[#080808] hover:bg-[#F2F2EE] hairline-border transition-colors">Week 2</button><button class="px-3 py-1 rounded text-[11px] font-mono font-medium bg-[#FAFAF8] text-[#575757] hover:text-[#080808] hover:bg-[#F2F2EE] hairline-border transition-colors">Week 3</button><button class="px-3 py-1 rounded text-[11px] font-mono font-medium bg-[#FAFAF8] text-[#575757] hover:text-[#080808] hover:bg-[#F2F2EE] hairline-border transition-colors">Week 4</button><button class="px-3 py-1 rounded text-[11px] font-mono font-medium bg-[#FAFAF8] text-[#575757] hover:text-[#080808] hover:bg-[#F2F2EE] hairline-border transition-colors">Week 5</button><button class="px-3 py-1 rounded text-[11px] font-mono font-medium bg-[#FAFAF8] text-[#575757] hover:text-[#080808] hover:bg-[#F2F2EE] hairline-border transition-colors">Week 6</button><button class="px-3 py-1 rounded text-[11px] font-mono font-medium bg-[#FAFAF8] text-[#575757] hover:text-[#080808] hover:bg-[#F2F2EE] hairline-border transition-colors">Week 7</button><button class="px-3 py-1 rounded text-[11px] font-mono font-medium bg-[#FAFAF8] text-[#575757] hover:text-[#080808] hover:bg-[#F2F2EE] hairline-border transition-colors">Week 8</button></div></div><div class="inline-flex flex-wrap items-center gap-2.5 sm:gap-3 bg-[#EEF3FD]/40 px-3.5 py-2 rounded hairline-border text-xs"><div class="flex items-center gap-1.5"><span class="text-[#70706B] font-geist text-[11px]">Mileage Goal:</span><span class="font-mono font-bold text-[#154ECD]">55.00 mi</span></div><span class="text-[#D1D1CB]">|</span><div class="flex items-center gap-1.5"><span class="text-[#575757] font-geist text-[11px]">Week Total:</span><span class="font-mono font-bold text-[#080808]" id="weekly-total-banner">55.92 mi</span></div><span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold bg-[#EEF3FD] text-[#154ECD] border border-[#D7E3FC]" id="weekly-goal-diff">+0.92 mi over goal</span></div></div></section>
+<!-- 2. KEY TELEMETRY GRID CARDS -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-5"><div class="md:col-span-7 rounded-lg bg-[#FFFFFF] hairline-border p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.03)]"><div><div class="flex flex-wrap items-center justify-between gap-3 mb-3"><div><div class="flex items-center gap-2"><h2 class="font-semibold text-base text-[#080808] tracking-tight">Week 1 Mileage Distribution</h2><span class="px-1.5 py-0.2 rounded text-[9px] font-geist font-medium bg-[#EEF3FD] text-[#154ECD] border border-[#D7E3FC]" id="weekly-total-telemetry">55.92 mi Total</span></div><p class="text-[11px] text-[#70706B] font-geist">Daily mileage vs 55 mi target baseline</p></div><div class="flex items-center gap-2 bg-[#FAFAF8] px-2.5 py-1 rounded hairline-border"><div class="text-right"><div class="text-[9px] font-geist uppercase text-[#70706B]">Pace Avg</div><div class="font-mono text-xs font-bold text-[#154ECD]" id="weekly-avg-pace-telemetry">6:42/mi</div></div><span class="w-1.5 h-6 rounded-full bg-[#154ECD]"></span></div></div><div class="h-32 w-full flex items-end justify-between gap-2.5 pt-3 pb-2 border-b border-[#ECECE9] font-mono"><div class="flex-1 flex flex-col items-center gap-1 h-full justify-end"><span class="text-[9px] text-[#70706B]" id="chart-val-8-24">8.14</span><div class="w-full max-w-[24px] h-16 rounded-t bg-[#154ECD]" id="chart-bar-8-24"></div><span class="text-[10px] text-[#70706B] font-geist font-medium">8/24</span></div><div class="flex-1 flex flex-col items-center gap-1 h-full justify-end"><span class="text-[9px] text-[#154ECD] font-bold" id="chart-val-8-25">12.00</span><div class="w-full max-w-[24px] h-24 rounded-t bg-[#154ECD]" id="chart-bar-8-25"></div><span class="text-[10px] text-[#154ECD] font-geist font-bold">8/25</span></div><div class="flex-1 flex flex-col items-center gap-1 h-full justify-end"><span class="text-[9px] text-[#70706B]" id="chart-val-8-26">9.33</span><div class="w-full max-w-[24px] h-18 rounded-t bg-[#154ECD]" id="chart-bar-8-26"></div><span class="text-[10px] text-[#70706B] font-geist font-medium">8/26</span></div><div class="flex-1 flex flex-col items-center gap-1 h-full justify-end"><span class="text-[9px] text-[#70706B]" id="chart-val-8-27">7.00</span><div class="w-full max-w-[24px] h-14 rounded-t bg-[#154ECD]" id="chart-bar-8-27"></div><span class="text-[10px] text-[#70706B] font-geist font-medium">8/27</span></div><div class="flex-1 flex flex-col items-center gap-1 h-full justify-end"><span class="text-[9px] text-[#70706B]" id="chart-val-8-28">7.84</span><div class="w-full max-w-[24px] h-16 rounded-t bg-[#154ECD]" id="chart-bar-8-28"></div><span class="text-[10px] text-[#70706B] font-geist font-medium">8/28</span></div><div class="flex-1 flex flex-col items-center gap-1 h-full justify-end"><span class="text-[9px] text-[#154ECD] font-bold" id="chart-val-8-29">11.51</span><div class="w-full max-w-[24px] h-22 rounded-t bg-[#154ECD]" id="chart-bar-8-29"></div><span class="text-[10px] text-[#154ECD] font-geist font-bold">8/29</span></div><div class="flex-1 flex flex-col items-center gap-1 h-full justify-end"><span class="text-[9px] text-[#8A8A85]" id="chart-val-8-30">0.00</span><div class="w-full max-w-[24px] h-2 rounded-t bg-[#F0F0EC] border border-dashed border-[#DCDCD6]" id="chart-bar-8-30"></div><span class="text-[10px] text-[#70706B] font-geist font-medium">8/30</span></div></div></div><div class="flex flex-wrap items-center justify-between gap-2 pt-2.5 text-xs"><div class="flex items-center gap-3 text-[#575757] text-[11px] font-geist"></div></div></div><div class="md:col-span-5 rounded-lg bg-[#FFFFFF] hairline-border p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.03)]"><div><div class="flex items-center justify-between mb-3"><div><div class="flex items-center gap-2"><h2 class="font-semibold text-base text-[#080808] tracking-tight">Shoe Odometer</h2><span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-[#FAFAF8] text-[#70706B] border border-[#E7E7E3]">Rotation</span></div><p class="text-[11px] text-[#70706B] font-geist">Current Miles vs Shoe Wear Mileage Limits</p></div><span class="material-symbols-outlined text-[#154ECD] text-lg">steps</span></div><div class="space-y-2.5 font-sans"><div class="p-2.5 rounded bg-[#FAFAF8] hairline-border"><div class="flex items-center justify-between text-xs mb-1.5"><div class="flex items-center gap-2"><span class="font-semibold text-[#080808] text-[13px]">Nike Vomero</span><span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-[#FEE2E2] text-[#BA1A1A] border border-[#FCA5A5] font-semibold">Retired / High Wear</span></div><div class="font-mono font-bold text-xs text-[#BA1A1A]">505.08 mi</div></div><div class="w-full h-1.5 bg-[#F0F0EC] rounded-full overflow-hidden"><div class="h-full bg-[#BA1A1A] rounded-full" style="width: 100%;"></div></div><div class="flex justify-between items-center mt-1 text-[9px] font-geist text-[#BA1A1A]"><span>Exceeded 450 mi limit</span><span>100%+ wear</span></div></div><div class="p-2.5 rounded bg-[#FAFAF8] hairline-border"><div class="flex items-center justify-between text-xs mb-1.5"><div class="flex items-center gap-2"><span class="font-semibold text-[#080808] text-[13px]">Adidas Adistar</span><span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-[#EEF3FD] text-[#154ECD] border border-[#D7E3FC]">Active Daily</span></div><div class="font-mono font-bold text-xs text-[#080808]">282.75 mi</div></div><div class="w-full h-1.5 bg-[#F0F0EC] rounded-full overflow-hidden"><div class="h-full bg-[#154ECD] rounded-full" style="width: 56.5%;"></div></div><div class="flex justify-between items-center mt-1 text-[9px] font-geist text-[#70706B]"><span>Healthy midsole foam</span><span>56.5% of 500 mi</span></div></div><div class="p-2 rounded bg-[#FFFFFF] border border-dashed border-[#DCDCD6] flex items-center justify-between text-xs hover:border-[#154ECD] transition-colors cursor-pointer group"><div class="flex items-center gap-2 text-[#70706B] group-hover:text-[#154ECD]"><span class="material-symbols-outlined text-[16px]">add</span><span class="font-geist text-[11px] italic">&lt;enter shoe here&gt;</span></div><span class="font-mono text-xs text-[#8A8A85]">0.00 mi</span></div></div></div><div class="mt-3 pt-2.5 border-t border-[#ECECE9] flex items-center justify-between text-[10px] text-[#70706B] font-geist"><span>Tracking 2 pairs in active roster</span><button class="text-[#154ECD] font-medium hover:underline flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">tune</span> Manage Shoes</button></div></div></section>
+<!-- 3. DAILY LOG FEED & ATHLETE ROSTER TABLE -->
+<section class="rounded-lg bg-[#FFFFFF] hairline-border p-5 space-y-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3"><div><div class="flex items-center gap-2"><h2 class="font-semibold text-base text-[#080808] tracking-tight">Carter's Daily Training Logbook — Week 1</h2><span class="px-2 py-0.5 rounded text-[10px] font-mono bg-[#EEF3FD] text-[#154ECD] border border-[#D7E3FC] font-semibold">Mileage Goal: 55.00 mi</span></div><p class="text-[11px] text-[#70706B] font-geist">Spreadsheet data sync: Bentonville XC varsity training log &amp; biometrics</p></div><div class="flex flex-wrap items-center gap-2"><div class="inline-flex rounded p-0.5 bg-[#FAFAF8] hairline-border text-[11px] font-geist"><button class="px-2.5 py-1 rounded bg-[#FFFFFF] text-[#154ECD] shadow-sm font-semibold hairline-border">Week 1 (8/24 – 8/30)</button><button class="px-2.5 py-1 rounded text-[#70706B] hover:text-[#080808] transition-colors">Week 2</button><button class="px-2.5 py-1 rounded text-[#70706B] hover:text-[#080808] transition-colors">Week 3</button></div><button type="button" id="header-add-run-btn" onclick="openAddRunModal()" class="px-2.5 py-1 rounded bg-[#154ECD] hover:bg-[#0F3EA8] text-white hairline-border text-[11px] font-geist font-semibold flex items-center gap-1 transition-colors shadow-sm cursor-pointer"><span class="material-symbols-outlined text-[14px]">add</span> + Add Run</button></div></div><div class="overflow-x-auto custom-scroll -mx-5 px-5"><table class="w-full text-left text-xs font-sans border-collapse min-w-[1050px] border border-[#DCDCD6]">
+<thead>
+  <tr class="border-b border-[#DCDCD6] text-[10px] font-geist uppercase text-[#70706B] bg-[#FAFAF8]">
+    <th class="py-2.5 px-3 font-semibold w-16 text-center border-r border-[#DCDCD6]">Date</th>
+    <th class="py-2.5 px-3 font-semibold min-w-[200px] border-r border-[#DCDCD6]">Daily Comments / Workout Reflections</th>
+    <th class="py-2.5 px-2.5 font-semibold text-center w-20 border-r border-[#DCDCD6]">Sleep</th>
+    <th class="py-2.5 px-2 font-semibold text-center w-14 border-r border-[#DCDCD6]" title="Physical Therapy / Activation Routine">PT</th>
+    <th class="py-2.5 px-2 font-semibold text-center w-14 border-r border-[#DCDCD6]" title="Core Strength">Core</th>
+    <th class="py-2.5 px-2 font-semibold text-center w-14 border-r border-[#DCDCD6]" title="Weight Lifting">Lift</th>
+    <th class="py-2.5 px-2 font-semibold text-center w-16 border-r border-[#DCDCD6]">Run</th>
+    <th class="py-2.5 px-3 font-semibold min-w-[170px] text-left border-r border-[#DCDCD6]">Details</th>
+    <th class="py-2.5 px-3 font-semibold w-28 border-r border-[#DCDCD6]">Shoe</th>
+    <th class="py-2.5 px-2 font-semibold text-center w-20 border-r border-[#DCDCD6]">Cross Train</th>
+    <th class="py-2.5 px-2 font-semibold w-24 border-r border-[#DCDCD6]">Type</th>
+    <th class="py-2.5 px-2 text-right font-semibold w-16 border-r border-[#DCDCD6]">Minutes</th>
+  <th class="py-2.5 px-3 font-semibold text-center w-28" title="Daily Injury &amp; Health Telemetry">Injury Report</th></tr>
+</thead>
+<tbody class="divide-y divide-[#DCDCD6] font-sans">
+  <!-- 8/24 -->
+  <tr class="hover:bg-[#FAFAF8] transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono font-bold text-[#080808] border-r border-[#DCDCD6]" rowspan="2">8/24</td>
+    <td class="py-2.5 px-3 text-[11px] text-[#575757] border-r border-[#DCDCD6]" rowspan="2" id="comment-8-24">Aerobic threshold kick-off. Felt springy and controlled throughout the initial base loop.</td>
+    <td class="py-2.5 px-2.5 text-center border-r border-[#DCDCD6]" rowspan="2">
+      <div class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#154ECD] text-white">7.0h</div>
+    </td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#154ECD] font-semibold bg-[#EEF3FD]/40 border-r border-[#DCDCD6]">Run 1</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-24-1" data-date="2026-08-24" data-slot="Run 1">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#EEF3FD]/70 cursor-pointer transition-colors border border-transparent hover:border-[#D7E3FC]" data-date="8/24" data-miles="8.14" data-notes="Aerobic threshold kick-off. Felt springy and controlled throughout the initial base loop." data-pace="6:45" data-run-type="Run 1" data-shoe="Vomero" data-time="54:56" onclick="openAddRunModal('2026-08-24', 'Run 1')">
+        <div>
+          <div class="font-mono font-bold text-[12px] text-[#080808]">8.14 <span class="text-[10px] font-normal text-[#70706B]">mi</span></div>
+          <div class="text-[10px] font-mono text-[#154ECD] font-medium leading-tight">6:45/mi <span class="text-[#70706B] font-normal">• 54:56</span></div>
+        </div>
+        <span class="material-symbols-outlined text-[14px] text-[#A0A09A] group-hover:text-[#154ECD] transition-colors shrink-0">edit</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]"><span class="text-[11px] font-medium text-[#080808]">Vomero</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 1</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B] border-r border-[#DCDCD6]">0</td>
+  <td class="py-2 px-2.5 text-center align-middle" rowspan="2"><div class="flex flex-col items-center justify-center gap-1.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#16A34A] bg-[#FEFEFD] border border-[#DCDCD6] shadow-sm"><span class="material-symbols-outlined text-[13px] text-[#16A34A]">check_circle</span> No Issues</span><button onclick="openInjuryModal('8/24', 'No Issues', '', '', 1, 'Monitoring', '')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#154ECD] bg-[#EEF3FD] hover:bg-[#EEF3FD]/80 border border-[#D7E3FC] transition-colors cursor-pointer"><span class="material-symbols-outlined text-[12px]">edit_note</span> + Details</button></div></td></tr>
+  <tr class="hover:bg-[#FAFAF8] transition-colors border-b-2 border-[#080808]/20"><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 2</td><td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-24-2" data-date="2026-08-24" data-slot="Run 2"><div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/24" data-miles="0.00" data-notes="" data-pace="—" data-run-type="Run 2" data-shoe="Vomero" data-time="00:00" onclick="openAddRunModal('2026-08-24', 'Run 2')"><span class="text-[11px] font-mono text-[#8A8A85]">—</span><span class="material-symbols-outlined text-[13px] text-transparent group-hover:text-[#A0A09A] transition-colors">add</span></div></td><td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 2</td><td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B]">0</td></tr>
+  <!-- 8/25 -->
+  <tr class="hover:bg-[#FAFAF8] transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono font-bold text-[#080808] border-r border-[#DCDCD6]" rowspan="2">8/25</td>
+    <td class="py-2.5 px-3 text-[11px] text-[#575757] border-r border-[#DCDCD6]" rowspan="2" id="comment-8-25">Long Sunday continuous 12-miler. Rhythm felt clean, smooth turnover over rolling hills.</td>
+    <td class="py-2.5 px-2.5 text-center border-r border-[#DCDCD6]" rowspan="2">
+      <div class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#154ECD] text-white">7.0h</div>
+    </td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><span class="material-symbols-outlined text-[18px] text-[#154ECD]">check_box</span></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><span class="material-symbols-outlined text-[18px] text-[#154ECD]">check_box</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#154ECD] font-semibold bg-[#EEF3FD]/40 border-r border-[#DCDCD6]">Run 1</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-25-1" data-date="2026-08-25" data-slot="Run 1">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#EEF3FD]/70 cursor-pointer transition-colors border border-transparent hover:border-[#D7E3FC]" data-date="8/25" data-miles="12.00" data-notes="Long Sunday continuous 12-miler. Rhythm felt clean, smooth turnover over rolling hills." data-pace="6:40" data-run-type="Run 1" data-shoe="Vomero / Adistar" data-time="1:20:00" onclick="openAddRunModal('2026-08-25', 'Run 1')">
+        <div>
+          <div class="font-mono font-bold text-[12px] text-[#080808]">12.00 <span class="text-[10px] font-normal text-[#70706B]">mi</span></div>
+          <div class="text-[10px] font-mono text-[#154ECD] font-medium leading-tight">6:40/mi <span class="text-[#70706B] font-normal">• 1:20:00</span></div>
+        </div>
+        <span class="material-symbols-outlined text-[14px] text-[#A0A09A] group-hover:text-[#154ECD] transition-colors shrink-0">edit</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]"><span class="text-[11px] font-medium text-[#080808]">Vomero / Adistar</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 1</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B] border-r border-[#DCDCD6]">0</td>
+  <td class="py-2 px-2.5 text-center align-middle" rowspan="2"><div class="flex flex-col items-center justify-center gap-1.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#16A34A] bg-[#FEFEFD] border border-[#DCDCD6] shadow-sm"><span class="material-symbols-outlined text-[13px] text-[#16A34A]">check_circle</span> Healthy</span><button onclick="openInjuryModal('8/25', 'Healthy', '', '', 0, 'Cleared', '')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#154ECD] bg-[#EEF3FD] hover:bg-[#EEF3FD]/80 border border-[#D7E3FC] transition-colors cursor-pointer"><span class="material-symbols-outlined text-[12px]">edit_note</span> + Details</button></div></td></tr>
+  <tr class="hover:bg-[#FAFAF8] transition-colors border-b-2 border-[#080808]/20"><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 2</td><td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-25-2" data-date="2026-08-25" data-slot="Run 2"><div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/25" data-miles="0.00" data-notes="" data-pace="—" data-run-type="Run 2" data-shoe="Vomero" data-time="00:00" onclick="openAddRunModal('2026-08-25', 'Run 2')"><span class="text-[11px] font-mono text-[#8A8A85]">—</span><span class="material-symbols-outlined text-[13px] text-transparent group-hover:text-[#A0A09A] transition-colors">add</span></div></td><td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 2</td><td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B]">0</td></tr>
+  <!-- 8/26 -->
+  <tr class="hover:bg-[#FAFAF8] transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono font-bold text-[#080808] border-r border-[#DCDCD6]" rowspan="2">8/26</td>
+    <td class="py-2.5 px-3 text-[11px] text-[#575757] border-r border-[#DCDCD6]" rowspan="2" id="comment-8-26">Steady 9.33 miles. Legs recovered well from long run after good 8hr sleep.</td>
+    <td class="py-2.5 px-2.5 text-center border-r border-[#DCDCD6]" rowspan="2">
+      <div class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#16A34A] text-white">8.0h</div>
+    </td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#154ECD] font-semibold bg-[#EEF3FD]/40 border-r border-[#DCDCD6]">Run 1</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-26-1" data-date="2026-08-26" data-slot="Run 1">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#EEF3FD]/70 cursor-pointer transition-colors border border-transparent hover:border-[#D7E3FC]" data-date="8/26" data-miles="9.33" data-notes="Steady 9.33 miles. Legs recovered well from long run after good 8hr sleep." data-pace="6:50" data-run-type="Run 1" data-shoe="Adidas Adistar" data-time="1:03:52" onclick="openAddRunModal('2026-08-26', 'Run 1')">
+        <div>
+          <div class="font-mono font-bold text-[12px] text-[#080808]">9.33 <span class="text-[10px] font-normal text-[#70706B]">mi</span></div>
+          <div class="text-[10px] font-mono text-[#154ECD] font-medium leading-tight">6:50/mi <span class="text-[#70706B] font-normal">• 1:03:52</span></div>
+        </div>
+        <span class="material-symbols-outlined text-[14px] text-[#A0A09A] group-hover:text-[#154ECD] transition-colors shrink-0">edit</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]"><span class="text-[11px] font-medium text-[#080808]">Adidas Adistar</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 1</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B] border-r border-[#DCDCD6]">0</td>
+  <td class="py-2 px-2.5 text-center align-middle" rowspan="2"><div class="flex flex-col items-center justify-center gap-1.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#16A34A] bg-[#FEFEFD] border border-[#DCDCD6] shadow-sm"><span class="material-symbols-outlined text-[13px] text-[#16A34A]">check_circle</span> Healthy</span><button onclick="openInjuryModal('8/26', 'Healthy', '', '', 0, 'Cleared', '')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#154ECD] bg-[#EEF3FD] hover:bg-[#EEF3FD]/80 border border-[#D7E3FC] transition-colors cursor-pointer"><span class="material-symbols-outlined text-[12px]">edit_note</span> + Details</button></div></td></tr>
+  <tr class="hover:bg-[#FAFAF8] transition-colors border-b-2 border-[#080808]/20"><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 2</td><td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-26-2" data-date="2026-08-26" data-slot="Run 2"><div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/26" data-miles="0.00" data-notes="" data-pace="—" data-run-type="Run 2" data-shoe="Nike Vomero" data-time="00:00" onclick="openAddRunModal('2026-08-26', 'Run 2')"><span class="text-[11px] font-mono text-[#8A8A85]">—</span><span class="material-symbols-outlined text-[13px] text-transparent group-hover:text-[#A0A09A] transition-colors">add</span></div></td><td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 2</td><td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B]">0</td></tr>
+  <!-- 8/27 -->
+  <tr class="hover:bg-[#FAFAF8] transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono font-bold text-[#080808] border-r border-[#DCDCD6]" rowspan="2">8/27</td>
+    <td class="py-2.5 px-3 text-[11px] text-[#575757] border-r border-[#DCDCD6]" rowspan="2" id="comment-8-27">Midweek 7-mile maintenance. Shorter sleep last night; hydrated heavily throughout day.</td>
+    <td class="py-2.5 px-2.5 text-center border-r border-[#DCDCD6]" rowspan="2">
+      <div class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#DC2626] text-white">6.0h</div>
+    </td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#154ECD] font-semibold bg-[#EEF3FD]/40 border-r border-[#DCDCD6]">Run 1</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-27-1" data-date="2026-08-27" data-slot="Run 1">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#EEF3FD]/70 cursor-pointer transition-colors border border-transparent hover:border-[#D7E3FC]" data-date="8/27" data-miles="7.00" data-notes="Midweek 7-mile maintenance. Shorter sleep last night; hydrated heavily throughout day." data-pace="6:42" data-run-type="Run 1" data-shoe="Adidas Adistar" data-time="46:54" onclick="openAddRunModal('2026-08-27', 'Run 1')">
+        <div>
+          <div class="font-mono font-bold text-[12px] text-[#080808]">7.00 <span class="text-[10px] font-normal text-[#70706B]">mi</span></div>
+          <div class="text-[10px] font-mono text-[#154ECD] font-medium leading-tight">6:42/mi <span class="text-[#70706B] font-normal">• 46:54</span></div>
+        </div>
+        <span class="material-symbols-outlined text-[14px] text-[#A0A09A] group-hover:text-[#154ECD] transition-colors shrink-0">edit</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]"><span class="text-[11px] font-medium text-[#080808]">Adidas Adistar</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 1</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B] border-r border-[#DCDCD6]">0</td>
+  <td class="py-2 px-2.5 text-center align-middle" rowspan="2"><div class="flex flex-col items-center justify-center gap-1.5"><div class="inline-flex flex-col items-center gap-0.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-semibold text-[#BA1A1A] bg-[#FEE2E2] border border-[#FCA5A5]"><span class="material-symbols-outlined text-[12px] text-[#BA1A1A]">warning</span> R Soleus Tight</span><span class="text-[9px] font-mono text-[#70706B]">Mild (2/10)</span></div><button onclick="openInjuryModal('8/27', 'R Soleus Tight', 'R Soleus Tight', 'Right', 2, 'Modifying Mileage', 'Tightness during 7-mile maintenance')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#154ECD] bg-[#EEF3FD] hover:bg-[#EEF3FD]/80 border border-[#D7E3FC] transition-colors cursor-pointer"><span class="material-symbols-outlined text-[12px]">edit_note</span> + Details</button></div></td></tr>
+  <tr class="hover:bg-[#FAFAF8] transition-colors border-b-2 border-[#080808]/20"><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 2</td><td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-27-2" data-date="2026-08-27" data-slot="Run 2"><div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/27" data-miles="0.00" data-notes="" data-pace="—" data-run-type="Run 2" data-shoe="Nike Vomero" data-time="00:00" onclick="openAddRunModal('2026-08-27', 'Run 2')"><span class="text-[11px] font-mono text-[#8A8A85]">—</span><span class="material-symbols-outlined text-[13px] text-transparent group-hover:text-[#A0A09A] transition-colors">add</span></div></td><td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 2</td><td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B]">0</td></tr>
+  <!-- 8/28 -->
+  <tr class="hover:bg-[#FAFAF8] transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono font-bold text-[#080808] border-r border-[#DCDCD6]" rowspan="2">8/28</td>
+    <td class="py-2.5 px-3 text-[11px] text-[#575757] border-r border-[#DCDCD6]" rowspan="2" id="comment-8-28">7.84 miles with hurdle mobility work afterwards. Hamstrings opened up well.</td>
+    <td class="py-2.5 px-2.5 text-center border-r border-[#DCDCD6]" rowspan="2">
+      <div class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#154ECD] text-white">7.0h</div>
+    </td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><span class="material-symbols-outlined text-[18px] text-[#154ECD]">check_box</span></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><span class="material-symbols-outlined text-[18px] text-[#154ECD]">check_box</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#154ECD] font-semibold bg-[#EEF3FD]/40 border-r border-[#DCDCD6]">Run 1</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-28-1" data-date="2026-08-28" data-slot="Run 1">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#EEF3FD]/70 cursor-pointer transition-colors border border-transparent hover:border-[#D7E3FC]" data-date="8/28" data-miles="7.84" data-notes="7.84 miles with hurdle mobility work afterwards. Hamstrings opened up well." data-pace="6:38" data-run-type="Run 1" data-shoe="Vomero / Adistar" data-time="52:00" onclick="openAddRunModal('2026-08-28', 'Run 1')">
+        <div>
+          <div class="font-mono font-bold text-[12px] text-[#080808]">7.84 <span class="text-[10px] font-normal text-[#70706B]">mi</span></div>
+          <div class="text-[10px] font-mono text-[#154ECD] font-medium leading-tight">6:38/mi <span class="text-[#70706B] font-normal">• 52:00</span></div>
+        </div>
+        <span class="material-symbols-outlined text-[14px] text-[#A0A09A] group-hover:text-[#154ECD] transition-colors shrink-0">edit</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]"><span class="text-[11px] font-medium text-[#080808]">Vomero / Adistar</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 1</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B] border-r border-[#DCDCD6]">0</td>
+  <td class="py-2 px-2.5 text-center align-middle" rowspan="2"><div class="flex flex-col items-center justify-center gap-1.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#16A34A] bg-[#FEFEFD] border border-[#DCDCD6] shadow-sm"><span class="material-symbols-outlined text-[13px] text-[#16A34A]">check_circle</span> Cleared</span><button onclick="openInjuryModal('8/28', 'Cleared', 'None', 'Bilateral', 0, 'Cleared', 'Mobility work done')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#154ECD] bg-[#EEF3FD] hover:bg-[#EEF3FD]/80 border border-[#D7E3FC] transition-colors cursor-pointer"><span class="material-symbols-outlined text-[12px]">edit_note</span> + Details</button></div></td></tr>
+  <tr class="hover:bg-[#FAFAF8] transition-colors border-b-2 border-[#080808]/20"><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 2</td><td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-28-2" data-date="2026-08-28" data-slot="Run 2"><div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/28" data-miles="0.00" data-notes="" data-pace="—" data-run-type="Run 2" data-shoe="Nike Vomero" data-time="00:00" onclick="openAddRunModal('2026-08-28', 'Run 2')"><span class="text-[11px] font-mono text-[#8A8A85]">—</span><span class="material-symbols-outlined text-[13px] text-transparent group-hover:text-[#A0A09A] transition-colors">add</span></div></td><td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 2</td><td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B]">0</td></tr>
+  <!-- 8/29 -->
+  <tr class="hover:bg-[#FAFAF8] transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono font-bold text-[#080808] border-r border-[#DCDCD6]" rowspan="2">8/29</td>
+    <td class="py-2.5 px-3 text-[11px] text-[#080808] border-r border-[#DCDCD6] font-medium" rowspan="2" id="comment-8-29">"Effort basically turns it into about 12.5 for sure." Strong hilly segment.</td>
+    <td class="py-2.5 px-2.5 text-center border-r border-[#DCDCD6]" rowspan="2">
+      <div class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#154ECD] text-white">7.0h</div>
+    </td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><span class="material-symbols-outlined text-[18px] text-[#154ECD]">check_box</span></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" placeholder="on" type="checkbox" value=""></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#154ECD] font-semibold bg-[#EEF3FD]/40 border-r border-[#DCDCD6]">Run 1</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-29-1" data-date="2026-08-29" data-slot="Run 1">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#EEF3FD]/70 cursor-pointer transition-colors border border-transparent hover:border-[#D7E3FC]" data-date="8/29" data-miles="11.51" data-notes="Effort basically turns it into about 12.5 for sure. Strong hilly segment." data-pace="6:44" data-run-type="Run 1" data-shoe="Vomero / Adistar" data-time="1:17:30" onclick="openAddRunModal('2026-08-29', 'Run 1')">
+        <div>
+          <div class="font-mono font-bold text-[12px] text-[#080808]">11.51 <span class="text-[10px] font-normal text-[#70706B]">mi</span></div>
+          <div class="text-[10px] font-mono text-[#154ECD] font-medium leading-tight">6:44/mi <span class="text-[#70706B] font-normal">• 1:17:30</span></div>
+        </div>
+        <span class="material-symbols-outlined text-[14px] text-[#A0A09A] group-hover:text-[#154ECD] transition-colors shrink-0">edit</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]"><span class="text-[11px] font-medium text-[#080808]">Vomero / Adistar</span></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 1</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B] border-r border-[#DCDCD6]">0</td>
+  <td class="py-2 px-2.5 text-center align-middle" rowspan="2"><div class="flex flex-col items-center justify-center gap-1.5"><div class="inline-flex flex-col items-center gap-0.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#BA1A1A] bg-[#FEE2E2] border border-[#FCA5A5]"><span class="material-symbols-outlined text-[12px] text-[#BA1A1A]">info</span> L Hip Flexor</span><span class="text-[9px] font-mono text-[#70706B]">Soreness (1/10)</span></div><button onclick="openInjuryModal('8/29', 'L Hip Flexor', 'L Hip Flexor', 'Left', 1, 'Monitoring', 'Slight soreness on hill repeats')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#154ECD] bg-[#EEF3FD] hover:bg-[#EEF3FD]/80 border border-[#D7E3FC] transition-colors cursor-pointer"><span class="material-symbols-outlined text-[12px]">edit_note</span> + Details</button></div></td></tr>
+  <tr class="hover:bg-[#FAFAF8] transition-colors border-b-2 border-[#080808]/20"><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 2</td><td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-29-2" data-date="2026-08-29" data-slot="Run 2"><div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/29" data-miles="0.00" data-notes="" data-pace="—" data-run-type="Run 2" data-shoe="Nike Vomero" data-time="00:00" onclick="openAddRunModal('2026-08-29', 'Run 2')"><span class="text-[11px] font-mono text-[#8A8A85]">—</span><span class="material-symbols-outlined text-[13px] text-transparent group-hover:text-[#A0A09A] transition-colors">add</span></div></td><td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 2</td><td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td><td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B]">0</td></tr>
+  <!-- 8/30 -->
+  <tr class="hover:bg-[#FAFAF8] transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono font-bold text-[#080808] border-r border-[#DCDCD6]" rowspan="2">8/30</td>
+    <td class="py-2.5 px-3 text-[11px] text-[#70706B] border-r border-[#DCDCD6]" rowspan="2" id="comment-8-30">"Was gonna run 4 to get to 60 but due to having to run errands and lots of hw, I was not able to spare time." Rest &amp; academic day.</td>
+    <td class="py-2.5 px-2.5 text-center border-r border-[#DCDCD6]" rowspan="2">
+      <div class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#154ECD] text-white">7.0h</div>
+    </td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-2.5 px-2 text-center border-r border-[#DCDCD6]" rowspan="2"><input class="rounded border-[#DCDCD6] text-[#154ECD] focus:ring-[#154ECD] h-4 w-4" type="checkbox"></td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 1</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-30-1" data-date="2026-08-30" data-slot="Run 1">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/30" data-miles="0.00" data-notes="Rest &amp; academic day." data-pace="—" data-run-type="Run 1" data-shoe="Rest" data-time="00:00" onclick="openAddRunModal('2026-08-30', 'Run 1')">
+        <div>
+          <div class="font-mono font-bold text-[12px] text-[#8A8A85]">0.00 <span class="text-[10px] font-normal text-[#A0A09A]">mi</span></div>
+          <div class="text-[10px] font-mono text-[#8A8A85] leading-tight">Rest / Off</div>
+        </div>
+        <span class="material-symbols-outlined text-[14px] text-[#C0C0BA] group-hover:text-[#154ECD] transition-colors shrink-0">edit</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">Rest</td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 1</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B] border-r border-[#DCDCD6]">0</td>
+  <td class="py-2 px-2.5 text-center align-middle" rowspan="2"><div class="flex flex-col items-center justify-center gap-1.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#16A34A] bg-[#FEFEFD] border border-[#DCDCD6] shadow-sm"><span class="material-symbols-outlined text-[13px] text-[#16A34A]">check_circle</span> 100% Rested</span><button onclick="openInjuryModal('8/30', '100% Rested', 'None', 'Bilateral', 0, 'Cleared', 'Full rest day')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-geist font-medium text-[#154ECD] bg-[#EEF3FD] hover:bg-[#EEF3FD]/80 border border-[#D7E3FC] transition-colors cursor-pointer"><span class="material-symbols-outlined text-[12px]">edit_note</span> + Details</button></div></td></tr>
+  <tr class="hover:bg-[#FAFAF8] transition-colors border-b-2 border-[#080808]">
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#70706B] bg-[#FAFAF8] border-r border-[#DCDCD6]">Run 2</td>
+    <td class="py-1.5 px-3 border-r border-[#DCDCD6]" id="slot-8-30-2" data-date="2026-08-30" data-slot="Run 2">
+      <div class="group flex items-center justify-between p-1.5 -m-1.5 rounded hover:bg-[#FAFAF8] cursor-pointer transition-colors border border-transparent hover:border-[#DCDCD6]" data-date="8/30" data-miles="0.00" data-notes="" data-pace="—" data-run-type="Run 2" data-shoe="—" data-time="00:00" onclick="openAddRunModal('2026-08-30', 'Run 2')">
+        <span class="text-[11px] font-mono text-[#8A8A85]">—</span>
+        <span class="material-symbols-outlined text-[13px] text-transparent group-hover:text-[#A0A09A] transition-colors">add</span>
+      </div>
+    </td>
+    <td class="py-1.5 px-3 text-[#8A8A85] text-[10px] font-geist border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-center font-geist text-[10px] text-[#575757] bg-[#FAFAF8] border-r border-[#DCDCD6]">Session 2</td>
+    <td class="py-1.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">—</td>
+    <td class="py-1.5 px-2 text-right font-mono text-[11px] text-[#70706B]">0</td>
+  </tr>
+</tbody>
+<tfoot>
+  <tr class="bg-[#FAFAF8] font-mono text-[11px] border-t-2 border-[#080808]">
+    <td class="py-2.5 px-3 font-geist font-bold text-[#080808] uppercase border-r border-[#DCDCD6]" colspan="2">Weekly Totals (Week 1)</td>
+    <td class="py-2.5 px-2 text-center text-[#154ECD] font-bold border-r border-[#DCDCD6]">49.0h Tot</td>
+    <td class="py-2.5 px-2 text-center text-[#080808] font-bold border-r border-[#DCDCD6]" title="PT Habit Total">3/7</td>
+    <td class="py-2.5 px-2 text-center text-[#70706B] border-r border-[#DCDCD6]" title="Core Habit Total">0/7</td>
+    <td class="py-2.5 px-2 text-center text-[#080808] font-bold border-r border-[#DCDCD6]" title="Lift Habit Total">2/7</td>
+    <td class="py-2.5 px-2 text-center font-geist text-[10px] text-[#70706B] border-r border-[#DCDCD6]">Total</td>
+    <td class="py-2.5 px-3 text-left font-bold text-[13px] text-[#154ECD] border-r border-[#DCDCD6]" id="weekly-total-footer"><span id="weekly-total-footer-val">55.92 mi</span> <span class="font-normal text-[10px] text-[#70706B] ml-1" id="weekly-avg-pace-footer">avg 6:42/mi</span></td>
+    <td class="py-2.5 px-3 font-geist text-[10px] text-[#70706B] border-r border-[#DCDCD6]">Shoe Totals</td>
+    <td class="py-2.5 px-2 text-center font-geist text-[10px] text-[#70706B] border-r border-[#DCDCD6]">XT Total</td>
+    <td class="py-2.5 px-2 text-[10px] text-[#70706B] border-r border-[#DCDCD6]">None</td>
+    <td class="py-2.5 px-2 text-right font-bold text-[#080808] border-r border-[#DCDCD6]">0.0 min</td>
+  <td class="py-2.5 px-2.5 text-center font-geist text-[10px] font-semibold text-[#16A34A]"><span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-[#16A34A]">verified</span> 5/7 Clr</span></td></tr>
+</tfoot>
+</table></div><div class="pt-2 border-t border-[#ECECE9] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"><div class="flex items-center gap-2"><button class="px-3 py-1 rounded bg-[#154ECD] hover:bg-[#0F3EA8] text-white font-geist text-[11px] font-medium transition-colors shadow-sm">Save Week 1 Log</button></div></div></section>
+</main>
+</div>
+<!-- ================= 4. QUICK ACTION MODAL / SLIDE-OVER DRAWER (Slim Editorial Precision Style) ================= -->
+<div class="fixed inset-y-0 right-0 w-full sm:w-[420px] bg-[#FFFFFF] border-l border-[#ECECE9] shadow-xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between" id="quick-log-drawer">
+<!-- Drawer Header -->
+<div class="px-5 py-3.5 border-b border-[#ECECE9] flex items-center justify-between bg-[#FAFAF8]">
+<div class="flex items-center gap-2">
+<div class="p-1 rounded bg-[#EEF3FD] text-[#154ECD]">
+<span class="material-symbols-outlined text-base font-bold">edit_note</span>
+</div>
+<div>
+<h2 class="font-semibold text-sm text-[#080808]">Trackside Quick Log</h2>
+<p class="text-[11px] text-[#70706B] font-geist">Individual &amp; Squad Telemetry Entry</p>
+</div>
+</div>
+<button class="p-1 rounded text-[#70706B] hover:text-[#080808] hover:bg-[#EFEFEA] transition-colors" onclick="document.getElementById('quick-log-drawer').classList.add('translate-x-full')">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+<!-- Drawer Body / Inputs Form -->
+<div class="p-5 overflow-y-auto custom-scroll space-y-4 flex-1 text-xs font-sans"><!-- Athlete Selector --><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Select Athlete or Group</label><select class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option>Marcus Thorne (#104) — Men's XC</option><option>Julian Vance (#108) — Men's XC</option><option>David Kiptoo (#112) — Men's XC</option><option>Lucas Ramirez (#115) — Men's XC</option><option>+ Batch Whole Squad (Varsity Top 7)</option></select></div><!-- Slot and Run Type Tag Selection --><div class="grid grid-cols-2 gap-2.5"><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Run Slot</label><select class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option>Run 1</option><option>Run 2</option></select></div><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Run Type Tag</label><select class="w-full bg-[#FAFAF8] border border-[#154ECD] rounded text-[#154ECD] font-semibold px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option>Workout</option><option>Normal Run</option><option>Long Run</option><option>Double</option></select></div></div><!-- Workout Structure & Terrain Surface --><div class="grid grid-cols-2 gap-2.5"><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Workout Structure</label><select class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option>Aerobic Threshold Run</option><option>Tempo Repeats</option><option>VO2 Max Track Intervals</option><option>Easy Recovery Flush</option><option>Long Run Specificity</option></select></div><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Terrain Surface</label><select class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option>Grass / XC Trail Course</option><option>Polyurethane Track</option><option>Dirt Fire Road / Gravel</option><option>Asphalt / Road</option></select></div></div><!-- Distance, Duration & Avg Pace --><div class="grid grid-cols-3 gap-2.5"><div><label class="block font-geist font-medium text-[10px] text-[#575757] mb-1">Total Distance (mi)</label><input class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 font-mono text-xs font-semibold focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" type="text" value="10.2"></div><div><label class="block font-geist font-medium text-[10px] text-[#575757] mb-1">Duration (hh:mm:ss)</label><input class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 font-mono text-xs font-semibold focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" type="text" value="01:03:14"></div><div><label class="block font-geist font-medium text-[10px] text-[#575757] mb-1">Avg Pace (/mi)</label><input class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#154ECD] px-2.5 py-1.5 font-mono text-xs font-bold focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" type="text" value="6:12"></div></div><!-- Dual-Shoe Assignment & Split Mileage Breakdown --><div class="p-3 rounded bg-[#FAFAF8] hairline-border space-y-2.5"><div class="flex items-center justify-between"><span class="font-geist font-semibold text-[11px] text-[#080808] flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px] text-[#154ECD]">splitscreen</span> Dual-Shoe Mileage Divvy</span><span class="font-mono text-[10px] text-[#154ECD] font-semibold bg-[#EEF3FD] px-1.5 py-0.5 rounded border border-[#D7E3FC]">Sum: 10.2 mi</span></div><div class="space-y-2"><div class="grid grid-cols-12 gap-2 items-center"><div class="col-span-8"><label class="block font-geist text-[10px] text-[#70706B] mb-0.5">Shoe 1 (Warmup / Initial)</label><select class="w-full bg-[#FFFFFF] border border-[#E7E7E3] rounded text-[#080808] px-2 py-1 text-xs focus:border-[#154ECD] focus:outline-none"><option>Nike Vomero 🪦 (Retired/High Wear)</option><option>Adidas Adistar (Active Daily)</option><option>Nike Vaporfly 3</option></select></div><div class="col-span-4"><label class="block font-geist text-[10px] text-[#70706B] mb-0.5">Split (mi)</label><input class="w-full bg-[#FFFFFF] border border-[#E7E7E3] rounded text-[#080808] px-2 py-1 font-mono text-xs font-bold focus:border-[#154ECD] focus:outline-none tabular-numbers" type="text" value="3.2"></div></div><div class="grid grid-cols-12 gap-2 items-center"><div class="col-span-8"><label class="block font-geist text-[10px] text-[#70706B] mb-0.5">Shoe 2 (Workout / Main)</label><select class="w-full bg-[#FFFFFF] border border-[#E7E7E3] rounded text-[#080808] px-2 py-1 text-xs focus:border-[#154ECD] focus:outline-none"><option selected="">Adidas Adistar (Active Daily)</option><option>Nike Vomero 🪦 (Retired/High Wear)</option><option>Saucony Endorphin Elite</option></select></div><div class="col-span-4"><label class="block font-geist text-[10px] text-[#70706B] mb-0.5">Split (mi)</label><input class="w-full bg-[#FFFFFF] border border-[#E7E7E3] rounded text-[#154ECD] px-2 py-1 font-mono text-xs font-bold focus:border-[#154ECD] focus:outline-none tabular-numbers" type="text" value="7.0"></div></div></div><p class="text-[9px] font-geist text-[#70706B]">Miles are automatically allocated to each shoe's odometer in your roster.</p></div><!-- Rate of Perceived Exertion --><div class="p-3 rounded bg-[#FAFAF8] hairline-border space-y-2"><div class="flex items-center justify-between"><label class="font-geist font-medium text-[11px] text-[#575757]">Rate of Perceived Exertion (RPE)</label><span class="font-mono text-xs font-bold text-[#154ECD]">8 / 10</span></div><input class="w-full accent-[#154ECD] cursor-pointer" max="10" min="1" type="range" value="8"><div class="flex justify-between text-[9px] font-geist text-[#8A8A85]"><span>1 (Recovery)</span><span>5 (Moderate)</span><span>8 (Vigorous)</span><span>10 (Max Test)</span></div></div><!-- Physiological Metrics --><div class="grid grid-cols-2 gap-2.5"><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Avg Heart Rate (BPM)</label><div class="relative"><input class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 font-mono text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" type="number" value="154"><span class="material-symbols-outlined absolute right-2 top-2 text-[14px] text-[#8A8A85]">favorite</span></div></div><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Sleep Last Night</label><div class="relative"><input class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 font-mono text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" type="text" value="8h 12m"><span class="material-symbols-outlined absolute right-2 top-2 text-[14px] text-[#8A8A85]">bedtime</span></div></div></div><!-- Coach Feedback & Notes --><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Coach Notes &amp; Biomechanical Observation</label><textarea class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] p-2 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none font-sans" rows="3">Great turnover on grass strides. Kept threshold locked. Ready for Saturday.</textarea></div></div>
+<!-- Drawer Footer Actions -->
+<div class="p-3.5 border-t border-[#ECECE9] bg-[#FAFAF8] flex items-center justify-between gap-2.5">
+<button class="w-1/2 py-1.5 px-3 rounded border border-[#E7E7E3] text-[#575757] hover:text-[#080808] hover:bg-[#FFFFFF] font-geist text-xs font-medium transition-colors" onclick="document.getElementById('quick-log-drawer').classList.add('translate-x-full')">
+      Cancel
+    </button>
+<button class="w-1/2 py-1.5 px-3 rounded bg-[#154ECD] hover:bg-[#0F3EA8] text-white font-geist text-xs font-semibold shadow-sm transition-all" onclick="document.getElementById('quick-log-drawer').classList.add('translate-x-full')">
+      Commit Telemetry Log
+    </button>
+</div>
+</div>
+<!-- Backdrop for Drawer -->
+<div class="fixed inset-0 bg-[#080808]/20 backdrop-blur-[2px] z-40 hidden" id="drawer-backdrop" onclick="document.getElementById('quick-log-drawer').classList.add('translate-x-full'); this.classList.add('hidden');"></div>
+<div id="injury-modal-wrapper" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 transition-opacity duration-200 hidden"><div class="fixed inset-0 bg-[#080808]/40 backdrop-blur-[2px]" onclick="closeInjuryModal()"></div><div class="relative bg-[#FFFFFF] rounded-lg shadow-2xl border border-[#ECECE9] w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] z-10"><div class="px-5 py-3.5 border-b border-[#ECECE9] bg-[#FAFAF8] flex items-center justify-between shrink-0"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded bg-[#EEF3FD] border border-[#D7E3FC] text-[#154ECD] flex items-center justify-center font-bold"><span class="material-symbols-outlined text-[17px]">healing</span></div><div><div class="flex items-center gap-2"><h3 class="font-bold text-sm text-[#080808] tracking-tight">Log Injury &amp; Symptom Telemetry</h3><span class="px-1.5 py-0.2 rounded text-[10px] font-mono text-[#154ECD] bg-[#EEF3FD] border border-[#D7E3FC]" id="injury-modal-date-badge">8/24 — Session</span></div><p class="text-[11px] text-[#70706B] font-geist">Record physical therapy status, problem areas, and biomechanical pain scale</p></div></div><button class="p-1 rounded text-[#70706B] hover:text-[#080808] hover:bg-[#EFEFEA] transition-colors" onclick="closeInjuryModal()" title="Close"><span class="material-symbols-outlined text-lg leading-none">close</span></button></div><div class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs font-sans"><div class="flex items-center justify-between p-2.5 rounded bg-[#FAFAF8] hairline-border"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[#16A34A] text-lg">verified_user</span><div><div class="font-semibold text-[11px] text-[#080808]">Current Status</div><p class="text-[10px] text-[#70706B] font-geist">Toggle if athlete is 100% healthy or experiencing discomfort</p></div></div><button type="button" onclick="toggleNoIssuesState()" id="injury-status-toggle-btn" class="px-2.5 py-1 rounded text-[11px] font-geist font-semibold bg-[#FEFEFD] border border-[#DCDCD6] text-[#16A34A] hover:bg-[#F4F4F2] transition-colors flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">check_circle</span> Cleared (No Issues)</button></div><div class="grid grid-cols-2 gap-2.5"><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Specific Injury / Problem Area</label><select id="injury-problem-area" class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option value="None">None (Healthy / Cleared)</option><option value="Plantar Fascia">Plantar Fascia</option><option value="Achilles Tendon">Achilles Tendon</option><option value="Shin Splints (MTSS)">Shin Splints (MTSS)</option><option value="R Soleus Tight">R Soleus Tightness</option><option value="L Hip Flexor">L Hip Flexor Soreness</option><option value="IT Band">IT Band Friction</option><option value="Hamstring Strain">Hamstring Strain</option><option value="Patellar Tendon / Knee">Patellar Tendon / Knee</option><option value="Other / General Soreness">Other / General Soreness</option></select></div><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Side / Anatomical Location</label><select id="injury-side-location" class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option value="Bilateral">Bilateral (Both Sides)</option><option value="Right">Right</option><option value="Left">Left</option><option value="Central / Core">Central / Spine</option></select></div></div><div class="p-3.5 rounded bg-[#FAFAF8] hairline-border space-y-2"><div class="flex items-center justify-between"><label class="font-geist font-semibold text-[11px] text-[#080808] flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px] text-[#154ECD]">speed</span> Pain / Severity Scale (1–10)</label><span class="font-mono text-xs font-bold text-[#154ECD] bg-[#EEF3FD] px-2 py-0.5 rounded border border-[#D7E3FC]" id="pain-score-display">1 / 10 — Mild</span></div><input class="w-full accent-[#154ECD] cursor-pointer" id="injury-pain-slider" max="10" min="0" oninput="updatePainScoreDisplay(this.value)" type="range" value="1"><div class="flex justify-between text-[9px] font-geist text-[#8A8A85]"><span>0 (None)</span><span>1–3 (Mild Discomfort)</span><span>4–6 (Moderate / Impairing)</span><span>7–10 (Severe Pain)</span></div></div><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Status &amp; Action Needed</label><select id="injury-action-status" class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none"><option value="Monitoring">Active Monitoring (Run as Planned)</option><option value="Modifying Mileage">Modifying Mileage / Easy Pace Only</option><option value="Ice/PT Needed">Requires Ice / PT Protocol Pre-Run</option><option value="Cross-Training Sub">Cross-Training Sub (No Impact Running)</option><option value="Cleared">Cleared by Athletic Trainer</option></select></div><div><label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Notes &amp; Symptom Telemetry</label><textarea id="injury-symptom-notes" class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] p-2.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none font-sans" placeholder="Describe tightness, sharp pain, clicking, onset time, or swelling..." rows="3"></textarea></div></div><div class="px-5 py-3 border-t border-[#ECECE9] bg-[#FAFAF8] flex items-center justify-between gap-2.5 shrink-0"><button type="button" class="px-3.5 py-1.5 rounded border border-[#E7E7E3] text-[#575757] hover:text-[#080808] hover:bg-[#FFFFFF] font-geist text-xs font-medium transition-colors" onclick="closeInjuryModal()">Cancel</button><div class="flex items-center gap-2"><button type="button" onclick="markAsNoIssues()" class="px-3 py-1.5 rounded border border-[#DCDCD6] bg-[#FFFFFF] hover:bg-[#FAFAF8] text-[#16A34A] font-geist text-xs font-semibold transition-colors flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">check_circle</span> Mark as No Issues</button><button type="button" onclick="saveInjuryReport()" class="px-4 py-1.5 rounded bg-[#154ECD] hover:bg-[#0F3EA8] text-white font-geist text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px]">save</span> Save Injury Note</button></div></div></div></div>
+<!-- Mobile Bottom Floating Action Trigger -->
+<div class="md:hidden fixed bottom-4 right-4 z-30">
+<button class="w-12 h-12 rounded-full bg-[#154ECD] text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform" onclick="document.getElementById('quick-log-drawer').classList.remove('translate-x-full')">
+<span class="material-symbols-outlined text-xl">add</span>
+</button>
+</div>
+<!-- ================= 5. INTERACTIVE POPUP MODAL: ADD / EDIT RUN DETAILS ================= -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 transition-opacity duration-200 opacity-0 pointer-events-none" id="run-edit-modal-wrapper">
+<!-- Backdrop -->
+<div class="fixed inset-0 bg-[#080808]/40 backdrop-blur-[2px] transition-opacity" onclick="closeAddRunModal()"></div>
+<!-- Modal Dialog -->
+<div class="relative bg-[#FFFFFF] rounded-lg shadow-2xl border border-[#ECECE9] w-full max-w-lg overflow-hidden transform transition-transform duration-200 flex flex-col max-h-[90vh] scale-95" id="run-edit-dialog">
+<!-- Header -->
+<div class="px-5 py-3.5 border-b border-[#ECECE9] bg-[#FAFAF8] flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-[#EEF3FD] border border-[#D7E3FC] text-[#154ECD] flex items-center justify-center font-bold">
+<span class="material-symbols-outlined text-[17px]">directions_run</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="font-bold text-sm text-[#080808] tracking-tight" id="modal-title">Log Training Run</h3>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-mono text-[#154ECD] bg-[#EEF3FD] border border-[#D7E3FC]" id="modal-run-badge">8/24 — Run 1</span>
+</div>
+<p class="text-[11px] text-[#70706B] font-geist">Update mileage, pacing, and workout reflections</p>
+</div>
+</div>
+<button class="p-1 rounded text-[#70706B] hover:text-[#080808] hover:bg-[#EFEFEA] transition-colors" onclick="closeAddRunModal()" title="Close dialog">
+<span class="material-symbols-outlined text-lg leading-none">close</span>
+</button>
+</div>
+<!-- Body Form -->
+<form id="run-modal-form" onsubmit="saveRun(event)" class="flex flex-col flex-1 overflow-hidden">
+<input type="hidden" id="modal-run-id" value="">
+<div class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs font-sans">
+<!-- Run Slot, Run Type Tag & Date Row -->
+<div class="grid grid-cols-3 gap-2.5">
+  <div>
+    <label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Slot</label>
+    <select class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none" id="modal-run-type">
+      <option value="Run 1">Run 1 (AM)</option>
+      <option value="Run 2">Run 2 (PM)</option>
+    </select>
+  </div>
+  <div>
+    <label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Workout Type</label>
+    <select class="w-full bg-[#FAFAF8] border border-[#154ECD] rounded text-[#154ECD] font-semibold px-2 py-1.5 text-xs focus:border-[#154ECD] focus:outline-none" id="modal-workout-type">
+      <option value="Normal Run">Normal Run</option>
+      <option value="Workout">Workout / Track</option>
+      <option value="Long Run">Long Run</option>
+      <option value="Tempo">Tempo / Threshold</option>
+      <option value="Recovery">Recovery Flush</option>
+      <option value="Double">Double</option>
+      <option value="Race">Race</option>
+    </select>
+  </div>
+  <div>
+    <label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Log Date</label>
+    <input class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 font-mono text-xs font-semibold focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" id="modal-date" type="text" value="8/25" placeholder="YYYY-MM-DD or M/D" required>
+  </div>
+</div>
+
+<!-- Distance, Time & Calculated Pace Grid (Integrated 3-Way Auto-Calculator) -->
+<div class="p-3.5 rounded bg-[#FAFAF8] hairline-border space-y-3">
+  <div class="flex items-center justify-between">
+    <span class="text-[10px] font-geist font-semibold uppercase tracking-wider text-[#70706B]">Telemetry Metrics</span>
+    <span class="text-[10px] font-mono text-[#154ECD] font-medium" id="modal-calc-status">Fill any 2 to auto-solve 3rd</span>
+  </div>
+  <div class="grid grid-cols-3 gap-2.5">
+    <div>
+      <label class="block font-geist font-medium text-[10px] text-[#575757] mb-1">Distance (mi)</label>
+      <input class="w-full bg-[#FFFFFF] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 font-mono text-xs font-bold focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" id="modal-miles" type="number" step="0.01" min="0" placeholder="e.g. 8.14" oninput="onCalcInput('miles')">
+    </div>
+    <div>
+      <label class="block font-geist font-medium text-[10px] text-[#575757] mb-1">Duration (h:mm:ss)</label>
+      <input class="w-full bg-[#FFFFFF] border border-[#E7E7E3] rounded text-[#080808] px-2.5 py-1.5 font-mono text-xs font-semibold focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" id="modal-time" type="text" placeholder="e.g. 54:56" oninput="onCalcInput('time')">
+    </div>
+    <div>
+      <label class="block font-geist font-medium text-[10px] text-[#575757] mb-1">Avg Pace (/mi)</label>
+      <input class="w-full bg-[#FFFFFF] border border-[#E7E7E3] rounded text-[#154ECD] px-2.5 py-1.5 font-mono text-xs font-bold focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none tabular-numbers" id="modal-pace" type="text" placeholder="e.g. 6:45" oninput="onCalcInput('pace')">
+    </div>
+  </div>
+</div>
+
+<!-- Daily Notes / Comments -->
+<div>
+  <label class="block font-geist font-medium text-[11px] text-[#575757] mb-1">Athlete Comments &amp; Reflection</label>
+  <textarea class="w-full bg-[#FAFAF8] border border-[#E7E7E3] rounded text-[#080808] p-2.5 text-xs focus:border-[#154ECD] focus:ring-1 focus:ring-[#154ECD] focus:outline-none font-sans" id="modal-notes" rows="3" placeholder="Splits, effort, shoes, weather, how legs felt..."></textarea>
+</div>
+</div>
+
+<!-- Footer Actions -->
+<div class="px-5 py-3 border-t border-[#ECECE9] bg-[#FAFAF8] flex items-center justify-between gap-2.5 shrink-0">
+<button type="button" id="modal-delete-btn" class="px-3.5 py-1.5 rounded border border-[#BA1A1A]/30 text-[#BA1A1A] hover:bg-[#FEE2E2]/60 font-geist text-xs font-medium transition-colors hidden" onclick="handleModalDelete()">
+  Delete Run
+</button>
+<div class="flex items-center gap-2 ml-auto">
+  <button type="button" class="px-3.5 py-1.5 rounded border border-[#E7E7E3] text-[#575757] hover:text-[#080808] hover:bg-[#FFFFFF] font-geist text-xs font-medium transition-colors" onclick="closeAddRunModal()">
+    Cancel
+  </button>
+  <button type="submit" id="modal-save-btn" class="px-4 py-1.5 rounded bg-[#154ECD] hover:bg-[#0F3EA8] text-white font-geist text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+    <span class="material-symbols-outlined text-[15px]">check</span>
+    Save Run
+  </button>
+</div>
+</div>
+</form>
+</div>
+</div>
+<!-- App Logic Script -->
+<script src="/app.js"></script>
+</body></html>
