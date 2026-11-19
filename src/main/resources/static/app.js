@@ -2,8 +2,10 @@
  * 9STRIDE//OPS — Carter's Training Logbook
  * Application Frontend Controller & REST API Integration
  *
- * NOTE: All modal triggers, form submissions, and auto-calculator
- * handlers are attached directly to window.* for robust inline HTML onclick support.
+ * NOTE: All business logic, weekly summary aggregations, and pace/mileage/time math
+ * live in the Spring Boot backend (TrainingLogService).
+ * This file serves as a thin UI layer managing DOM rendering, modal triggers,
+ * and REST fetch() calls.
  */
 
 let cachedRuns = [];
@@ -23,11 +25,8 @@ const WEEK_DATES = [
 // ==========================================
 
 /**
- * Open '+ Add Run' Modal
- * Can be called as:
- *   openAddRunModal() -> defaults to 2026-08-24, Run 1
- *   openAddRunModal('2026-08-24', 'Run 1') -> pre-fills date and slot
- *   openAddRunModal(element) -> extracts data-date and data-run-type
+ * Open '+ Add Run' Modal.
+ * Pre-fills date and slot if provided, or defaults to 2026-08-24, Run 1.
  */
 window.openAddRunModal = function(arg1, arg2) {
   let defaultDate = '2026-08-24';
@@ -87,7 +86,7 @@ window.openAddRunModal = function(arg1, arg2) {
 };
 
 /**
- * Close Add/Edit Run Modal
+ * Close Add/Edit Run Modal.
  */
 window.closeAddRunModal = function() {
   const modalWrapper = document.getElementById('run-edit-modal-wrapper');
@@ -101,10 +100,9 @@ window.closeAddRunModal = function() {
     modalDialog.classList.add('scale-95');
   }
 };
-window.closeRunEditModal = window.closeAddRunModal;
 
 /**
- * Open Modal in Edit Mode for an existing Run ID
+ * Open Modal in Edit Mode for an existing Run ID.
  */
 window.openEditRunModal = function(runId) {
   const run = cachedRuns.find(r => String(r.id) === String(runId));
@@ -150,25 +148,23 @@ window.openEditRunModal = function(runId) {
 };
 
 /**
- * Legacy compatibility: accepts element or id
+ * 3-Way Auto-Calculator: Distance (mi), Duration (h:mm:ss), Avg Pace (/mi).
+ * Delegated to Spring Boot backend: POST /api/calculator/solve.
+ * Debounced by 300ms for smooth interactive typing.
  */
-window.openRunEditModal = function(arg) {
-  if (typeof arg === 'number' || (typeof arg === 'string' && !isNaN(arg))) {
-    window.openEditRunModal(arg);
-  } else if (arg && typeof arg === 'object' && arg.getAttribute) {
-    const date = arg.getAttribute('data-date') || '2026-08-24';
-    const runType = arg.getAttribute('data-run-type') || 'Run 1';
-    window.openAddRunModal(date, runType);
-  } else {
-    window.openAddRunModal();
-  }
+let calcDebounceTimer = null;
+
+window.onCalcInput = function(changedField) {
+  clearTimeout(calcDebounceTimer);
+  calcDebounceTimer = setTimeout(() => {
+    requestBackendCalculation(changedField);
+  }, 300);
 };
 
 /**
- * 3-Way Auto-Calculator: Distance (mi), Duration (h:mm:ss), Avg Pace (/mi)
- * Whenever any 2 values are present, auto-solves the 3rd.
+ * Performs backend POST call to solve the missing metric.
  */
-window.onCalcInput = function(changedField) {
+async function requestBackendCalculation(changedField) {
   const milesInput = document.getElementById('modal-miles');
   const timeInput = document.getElementById('modal-time');
   const paceInput = document.getElementById('modal-pace');
@@ -177,48 +173,54 @@ window.onCalcInput = function(changedField) {
   if (!milesInput || !timeInput || !paceInput) return;
 
   const milesVal = parseFloat(milesInput.value);
-  const timeSecs = parseTimeToSeconds(timeInput.value);
-  const paceSecs = parseTimeToSeconds(paceInput.value);
+  const timeVal = timeInput.value.trim();
+  const paceVal = paceInput.value.trim();
 
   const hasMiles = !isNaN(milesVal) && milesVal > 0;
-  const hasTime = timeSecs !== null && timeSecs > 0;
-  const hasPace = paceSecs !== null && paceSecs > 0;
+  const hasTime = timeVal.length > 0 && timeVal !== '—' && timeVal !== '-';
+  const hasPace = paceVal.length > 0 && paceVal !== '—' && paceVal !== '-';
 
-  if (changedField === 'miles') {
-    if (hasMiles && hasTime) {
-      const calcPace = timeSecs / milesVal;
-      paceInput.value = formatSecondsToPace(calcPace);
-      if (statusEl) statusEl.textContent = `Auto-calculated Pace: ${paceInput.value}/mi`;
-    } else if (hasMiles && hasPace) {
-      const calcTime = milesVal * paceSecs;
-      timeInput.value = formatSecondsToTime(calcTime);
-      if (statusEl) statusEl.textContent = `Auto-calculated Duration: ${timeInput.value}`;
+  const count = (hasMiles ? 1 : 0) + (hasTime ? 1 : 0) + (hasPace ? 1 : 0);
+
+  if (count !== 2) {
+    if (statusEl && count < 2) {
+      statusEl.textContent = 'Fill any 2 to auto-solve 3rd';
     }
-  } else if (changedField === 'time') {
-    if (hasTime && hasMiles) {
-      const calcPace = timeSecs / milesVal;
-      paceInput.value = formatSecondsToPace(calcPace);
-      if (statusEl) statusEl.textContent = `Auto-calculated Pace: ${paceInput.value}/mi`;
-    } else if (hasTime && hasPace) {
-      const calcMiles = timeSecs / paceSecs;
-      milesInput.value = calcMiles.toFixed(2);
-      if (statusEl) statusEl.textContent = `Auto-calculated Distance: ${milesInput.value} mi`;
-    }
-  } else if (changedField === 'pace') {
-    if (hasPace && hasMiles) {
-      const calcTime = milesVal * paceSecs;
-      timeInput.value = formatSecondsToTime(calcTime);
-      if (statusEl) statusEl.textContent = `Auto-calculated Duration: ${timeInput.value}`;
-    } else if (hasPace && hasTime) {
-      const calcMiles = timeSecs / paceSecs;
-      milesInput.value = calcMiles.toFixed(2);
-      if (statusEl) statusEl.textContent = `Auto-calculated Distance: ${milesInput.value} mi`;
-    }
+    return;
   }
-};
+
+  try {
+    const res = await fetch('/api/calculator/solve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mileage: hasMiles ? milesVal : null,
+        pace: hasPace ? paceVal : null,
+        totalTime: hasTime ? timeVal : null
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.calculatedField === 'totalTime' && !hasTime) {
+        timeInput.value = data.totalTime;
+        if (statusEl) statusEl.textContent = `Auto-calculated Duration: ${data.totalTime}`;
+      } else if (data.calculatedField === 'pace' && !hasPace) {
+        paceInput.value = data.pace;
+        if (statusEl) statusEl.textContent = `Auto-calculated Pace: ${data.pace}/mi`;
+      } else if (data.calculatedField === 'mileage' && !hasMiles) {
+        milesInput.value = Number(data.mileage).toFixed(2);
+        if (statusEl) statusEl.textContent = `Auto-calculated Distance: ${milesInput.value} mi`;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend calculation request failed:', err);
+  }
+}
 
 /**
- * Handle form submission: POST to /api/runs (or delete existing + POST for edits)
+ * Handle form submission: POST to /api/runs (or delete existing + POST for edits).
+ * The Java backend automatically runs autoFillRunMetrics() before saving.
  */
 window.saveRun = async function(event) {
   if (event) event.preventDefault();
@@ -234,34 +236,23 @@ window.saveRun = async function(event) {
   const paceInput = document.getElementById('modal-pace');
   const notesInput = document.getElementById('modal-notes');
 
-  let miles = parseFloat(milesInput ? milesInput.value : '0') || 0.0;
-  let timeStr = timeInput ? timeInput.value.trim() : '';
-  let paceStr = paceInput ? paceInput.value.trim() : '';
-
-  // Auto-fill missing 3rd value if 2 are filled upon submitting
-  const timeSecs = parseTimeToSeconds(timeStr);
-  const paceSecs = parseTimeToSeconds(paceStr);
-  if (miles > 0 && timeSecs > 0 && !paceSecs) {
-    paceStr = formatSecondsToPace(timeSecs / miles);
-  } else if (miles > 0 && paceSecs > 0 && !timeSecs) {
-    timeStr = formatSecondsToTime(miles * paceSecs);
-  } else if (timeSecs > 0 && paceSecs > 0 && miles <= 0) {
-    miles = parseFloat((timeSecs / paceSecs).toFixed(2));
-  }
+  const miles = parseFloat(milesInput ? milesInput.value : '0') || null;
+  const timeStr = timeInput ? timeInput.value.trim() : '';
+  const paceStr = paceInput ? paceInput.value.trim() : '';
 
   const payload = {
     athleteName: 'Carter',
     runDate: normalizeDateToIso(dateInput ? dateInput.value : '2026-08-24'),
     sessionSlot: slotInput ? slotInput.value : 'Run 1',
     mileage: miles,
-    pace: paceStr || '—',
-    totalTime: timeStr || '—',
+    pace: paceStr || null,
+    totalTime: timeStr || null,
     workoutType: workoutTypeInput ? workoutTypeInput.value : 'Normal Run',
     notes: notesInput ? notesInput.value.trim() : ''
   };
 
   try {
-    // If editing, delete previous record first
+    // If editing an existing run, delete prior record first
     if (runId) {
       await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
     }
@@ -283,10 +274,9 @@ window.saveRun = async function(event) {
     alert('Failed to save run to backend database. Please check console.');
   }
 };
-window.handleRunFormSubmit = window.saveRun;
 
 /**
- * Handle Run Deletion: DELETE /api/runs/{id}
+ * Handle Run Deletion: DELETE /api/runs/{id}.
  */
 window.handleModalDelete = async function() {
   const idEl = document.getElementById('modal-run-id');
@@ -385,16 +375,16 @@ window.saveInjuryReport = function() {
 };
 
 // ==========================================
-// 3. CORE LOGIC: FETCH & RENDER RUNS
+// 3. CORE LOGIC: FETCH & RENDER RUNS & SUMMARY
 // ==========================================
 
 async function fetchAndRenderRuns() {
   try {
-    const res = await fetch('/api/runs');
-    if (!res.ok) {
-      throw new Error(`GET /api/runs failed: ${res.status}`);
+    const runsRes = await fetch('/api/runs');
+    if (!runsRes.ok) {
+      throw new Error(`GET /api/runs failed: ${runsRes.status}`);
     }
-    const runs = await res.json();
+    const runs = await runsRes.json();
 
     if (!runs || runs.length === 0) {
       await seedInitialWeekData();
@@ -403,9 +393,15 @@ async function fetchAndRenderRuns() {
 
     cachedRuns = runs;
     renderRuns(cachedRuns);
-    updateWeeklyTotals(cachedRuns);
+
+    // Fetch Java-calculated weekly statistics
+    const summaryRes = await fetch('/api/runs/summary?startDate=2026-08-24&endDate=2026-08-30&goal=55');
+    if (summaryRes.ok) {
+      const summary = await summaryRes.json();
+      renderWeeklySummary(summary);
+    }
   } catch (err) {
-    console.error('Error fetching runs:', err);
+    console.error('Error fetching runs or summary:', err);
   }
 }
 
@@ -484,7 +480,12 @@ async function seedInitialWeekData() {
     const res = await fetch('/api/runs');
     cachedRuns = await res.json();
     renderRuns(cachedRuns);
-    updateWeeklyTotals(cachedRuns);
+
+    const summaryRes = await fetch('/api/runs/summary?startDate=2026-08-24&endDate=2026-08-30&goal=55');
+    if (summaryRes.ok) {
+      const summary = await summaryRes.json();
+      renderWeeklySummary(summary);
+    }
   } catch (err) {
     console.error('Failed to seed initial week runs:', err);
   }
@@ -531,9 +532,7 @@ function renderRuns(runs) {
 
     if (commentEl) {
       const activeNotes = dayRuns.map(r => r.notes).filter(Boolean).join(' | ');
-      if (activeNotes) {
-        commentEl.textContent = activeNotes;
-      }
+      commentEl.textContent = activeNotes || '—';
     }
   });
 }
@@ -582,39 +581,18 @@ function createEmptySlotHtml(dateStr, slotName) {
 }
 
 // ==========================================
-// 4. WEEKLY TOTALS & TELEMETRY
+// 4. RENDER WEEKLY SUMMARY (FROM JAVA BACKEND)
 // ==========================================
 
-function updateWeeklyTotals(runs) {
-  let totalMiles = 0;
-  let totalSeconds = 0;
+/**
+ * Updates DOM telemetry, KPI cards, and day-by-day distribution chart
+ * directly from the Java-calculated WeeklySummary DTO.
+ */
+function renderWeeklySummary(summary) {
+  if (!summary) return;
 
-  const dailyTotals = {
-    '2026-08-24': 0,
-    '2026-08-25': 0,
-    '2026-08-26': 0,
-    '2026-08-27': 0,
-    '2026-08-28': 0,
-    '2026-08-29': 0,
-    '2026-08-30': 0
-  };
-
-  runs.forEach(r => {
-    const mi = Number(r.mileage) || 0;
-    totalMiles += mi;
-
-    if (dailyTotals.hasOwnProperty(r.runDate)) {
-      dailyTotals[r.runDate] += mi;
-    }
-
-    const runSecs = parseTimeToSeconds(r.totalTime) || (mi * (parseTimeToSeconds(r.pace) || 0));
-    if (runSecs > 0) {
-      totalSeconds += runSecs;
-    }
-  });
-
-  const avgPaceSecs = totalMiles > 0 && totalSeconds > 0 ? (totalSeconds / totalMiles) : 0;
-  const avgPaceStr = formatSecondsToPace(avgPaceSecs) || '6:42';
+  const totalMiles = Number(summary.totalMileage || 0);
+  const avgPaceStr = summary.averagePace || '--:--';
 
   const bannerEl = document.getElementById('weekly-total-banner');
   if (bannerEl) bannerEl.textContent = `${totalMiles.toFixed(2)} mi`;
@@ -643,14 +621,17 @@ function updateWeeklyTotals(runs) {
   const footerPaceEl = document.getElementById('weekly-avg-pace-footer');
   if (footerPaceEl) footerPaceEl.textContent = `avg ${avgPaceStr}/mi`;
 
-  const maxDayMiles = Math.max(...Object.values(dailyTotals), 12.0);
+  const dailyTotals = summary.dailyTotals || {};
+  const dailyValues = Object.values(dailyTotals);
+  const maxDayMiles = dailyValues.length > 0 ? Math.max(...dailyValues, 12.0) : 12.0;
+
   WEEK_DATES.forEach(dateStr => {
     const short = formatIsoToShort(dateStr);
     const [m, d] = short.split('/');
     const valEl = document.getElementById(`chart-val-${m}-${d}`);
     const barEl = document.getElementById(`chart-bar-${m}-${d}`);
 
-    const dayMiles = dailyTotals[dateStr] || 0;
+    const dayMiles = Number(dailyTotals[dateStr] || 0);
 
     if (valEl) {
       valEl.textContent = dayMiles.toFixed(2);
@@ -720,46 +701,6 @@ function formatIsoToShort(isoStr) {
     return `${m}/${d}`;
   }
   return isoStr;
-}
-
-function parseTimeToSeconds(timeStr) {
-  if (!timeStr) return null;
-  const clean = String(timeStr).replace(/[^0-9:]/g, '').trim();
-  if (!clean) return null;
-
-  const parts = clean.split(':').map(Number);
-  if (parts.some(isNaN)) return null;
-
-  if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  } else if (parts.length === 2) {
-    return parts[0] * 60 + parts[1];
-  } else if (parts.length === 1) {
-    return parts[0] * 60;
-  }
-  return null;
-}
-
-function formatSecondsToTime(totalSecs) {
-  if (!totalSecs || isNaN(totalSecs) || totalSecs <= 0) return '';
-  const rounded = Math.round(totalSecs);
-  const hrs = Math.floor(rounded / 3600);
-  const rem = rounded % 3600;
-  const mins = Math.floor(rem / 60);
-  const secs = rem % 60;
-
-  if (hrs > 0) {
-    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function formatSecondsToPace(paceSecs) {
-  if (!paceSecs || isNaN(paceSecs) || paceSecs <= 0) return '';
-  const rounded = Math.round(paceSecs);
-  const mins = Math.floor(rounded / 60);
-  const secs = rounded % 60;
-  return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
 function initDrawerObserver() {

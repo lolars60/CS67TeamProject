@@ -3,6 +3,7 @@ package com.traininglogbook.training_logbook;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,19 +16,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// Handles HTTP requests from the frontend at /api/runs and returns JSON data
+// REST endpoints for reading, adding, and deleting runs at /api/runs
 @RestController
 @RequestMapping("/api/runs")
 public class RunEntryController {
 
     private final RunEntryRepository runEntryRepository;
+    private final TrainingLogService trainingLogService;
 
-    // Injects the repository so the controller can read/write to the database
-    public RunEntryController(RunEntryRepository runEntryRepository) {
+    // Injects the database repository and calculation service so the controller can read/write to the database
+    public RunEntryController(RunEntryRepository runEntryRepository, TrainingLogService trainingLogService) {
         this.runEntryRepository = runEntryRepository;
+        this.trainingLogService = trainingLogService;
     }
 
-    // GET /api/runs - Returns runs for a specific week (if startDate and endDate are give) or all runs if no dates are given
     @GetMapping
     public List<RunEntry> getRuns(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -47,7 +49,16 @@ public class RunEntryController {
         return runs;
     }
 
-    // Post /api/runs - Takes JSON from the Add Run modal, sets default values if missing, and saves to the database
+    // GET /api/runs/summary - returns weekly mileage, average pace, and daily totals from Java
+    @GetMapping("/summary")
+    public WeeklySummary getWeeklySummary(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "65") double goal) {
+        return trainingLogService.calculateWeeklySummary(startDate, endDate, goal);
+    }
+
+    // POST /api/runs - fills defaults and missing metrics, then saves the run to H2
     @PostMapping
     public ResponseEntity<RunEntry> createRun(@RequestBody RunEntry runEntry) {
         if (runEntry.getRunDate() == null) {
@@ -62,11 +73,15 @@ public class RunEntryController {
         if (runEntry.getAthleteName() == null || runEntry.getAthleteName().isBlank()) {
             runEntry.setAthleteName("Athlete");
         }
+
+        // Fill in any missing pace, mileage, or time value before saving
+        trainingLogService.autoFillRunMetrics(runEntry);
+
         RunEntry saved = runEntryRepository.save(runEntry);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // DELETE /api/run/{id} - Deletes a specific run by its database ID
+    // DELETE /api/runs/{id} - deletes a run by its ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRun(@PathVariable Long id) {
         if (!runEntryRepository.existsById(id)) {
