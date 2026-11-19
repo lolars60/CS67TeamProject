@@ -1,45 +1,41 @@
 package com.traininglogbook.training_logbook;
 
+import java.time.LocalDate;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.LocalDate;
 
+// Marks this class as a SQL database table named "run_entries"
 @Entity
 @Table(name = "run_entries")
 public class RunEntry {
 
+    // Primary key that automatically increments for each new entry
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String athleteName;
+    private LocalDate runDate;    // Stored as YYY-MM-DD
+    private String sessionSlot;   // "AM" or "PM" for double runs
+    private Double mileage;       // Distance in miles
+    private String pace;          // Stored as "MM:SS"
+    private String totalTime;     // Stored as "MM:SS" or "HH:MM:SS"
+    private String workoutType;   // Easy, Wprkout, Long Run, Tempo, Recovery, etc.
 
-    private LocalDate runDate;
-
-    // "AM" or "PM" to support daily doubles
-    private String sessionSlot;
-
-    private Double mileage;
-
-    // Formatted as "MM:SS" (e.g., "6:45")
-    private String pace;
-
-    // Formatted as "MM:SS" or "HH:MM:SS" (e.g., "54:00")
-    private String totalTime;
-
-    // e.g., "Easy", "Workout", "Long Run", "Tempo", "Recovery", "Race"
-    private String workoutType;
-
+    // Allow longer text (up to 1000 characters) for notes and workout details
     @Column(length = 1000)
     private String notes;
 
+    // Default constructor required by JPA
     public RunEntry() {
     }
 
+    // Constructor used when creating a new RunEntry object
     public RunEntry(
             String athleteName,
             LocalDate runDate,
@@ -59,6 +55,7 @@ public class RunEntry {
         this.notes = notes;
     }
 
+    // Getters and setters used by Spring to convert between Java objects and json
     public Long getId() {
         return id;
     }

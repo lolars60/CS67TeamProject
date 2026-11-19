@@ -15,16 +15,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+// Handles HTTP requests from the frontend at /api/runs and returns JSON data
 @RestController
 @RequestMapping("/api/runs")
 public class RunEntryController {
 
     private final RunEntryRepository runEntryRepository;
 
+    // Injects the repository so the controller can read/write to the database
     public RunEntryController(RunEntryRepository runEntryRepository) {
         this.runEntryRepository = runEntryRepository;
     }
 
+    // GET /api/runs - Returns runs for a specific week (if startDate and endDate are give) or all runs if no dates are given
     @GetMapping
     public List<RunEntry> getRuns(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -44,6 +47,7 @@ public class RunEntryController {
         return runs;
     }
 
+    // Post /api/runs - Takes JSON from the Add Run modal, sets default values if missing, and saves to the database
     @PostMapping
     public ResponseEntity<RunEntry> createRun(@RequestBody RunEntry runEntry) {
         if (runEntry.getRunDate() == null) {
@@ -62,6 +66,7 @@ public class RunEntryController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
+    // DELETE /api/run/{id} - Deletes a specific run by its database ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRun(@PathVariable Long id) {
         if (!runEntryRepository.existsById(id)) {
